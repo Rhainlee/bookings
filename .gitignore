@@ -1,1 +1,4 @@
 .idea
+bookings
+run.sh
+database.yml

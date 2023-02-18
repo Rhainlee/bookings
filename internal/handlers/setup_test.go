@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"testing"
 	"time"
 
 	"github.com/alexedwards/scs/v2"
@@ -22,6 +23,41 @@ import (
 var app config.AppConfig
 var session *scs.SessionManager
 var pathToTemplate = "./../../templates"
+
+func TestMain(m *testing.M) {
+	gob.Register(models.Reservation{})
+
+	// change this to true when in production
+	app.Inproduction = false
+
+	infoLog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
+	app.InfoLog = infoLog
+
+	errorLog := log.New(os.Stdout, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
+	app.ErrorLog = errorLog
+
+	session = scs.New()
+	session.Lifetime = 24 * time.Hour
+	session.Cookie.Persist = true
+	session.Cookie.SameSite = http.SameSiteLaxMode
+	session.Cookie.Secure = app.Inproduction
+
+	app.Session = session
+
+	tc, err := CreateTestTemplateCache()
+	if err != nil {
+		log.Fatal("cannot create template cache")
+	}
+
+	app.TemplateCache = tc
+	app.UseCache = true
+
+	repo := NewTestRepo(&app)
+	NewHandlers(repo)
+	render.NewRenderer(&app)
+
+	os.Exit(m.Run())
+}
 
 func getRoutes() http.Handler {
 	// what am I going to put in the session
@@ -42,7 +78,7 @@ func getRoutes() http.Handler {
 	session.Cookie.SameSite = http.SameSiteLaxMode
 	session.Cookie.Secure = app.Inproduction
 
-	tc, err := CreateTemplateCache()
+	tc, err := CreateTestTemplateCache()
 	if err != nil {
 		log.Fatal("cannot create template cache")
 	}
@@ -51,9 +87,9 @@ func getRoutes() http.Handler {
 	app.UseCache = true
 	app.Session = session
 
-	repo := NewRepo(&app)
+	repo := NewTestRepo(&app)
 	NewHandlers(repo)
-	render.NewTemplates(&app)
+	render.NewRenderer(&app)
 
 	mux := chi.NewRouter()
 
@@ -102,7 +138,7 @@ func SessionLoad(next http.Handler) http.Handler {
 	return session.LoadAndSave(next)
 }
 
-func CreateTemplateCache() (map[string]*template.Template, error) {
+func CreateTestTemplateCache() (map[string]*template.Template, error) {
 	myCache := map[string]*template.Template{}
 
 	// get all of the files named *.page.tmpl from ./templates
