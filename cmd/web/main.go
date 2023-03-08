@@ -65,7 +65,6 @@ func run() (*driver.DB, error) {
 	mailChan := make(chan models.MailData)
 	app.MailChan = mailChan
 
-
 	// change this to true when in production
 	app.Inproduction = false
 
@@ -93,6 +92,7 @@ func run() (*driver.DB, error) {
 
 	tc, err := render.CreateTemplateCache()
 	if err != nil {
+		log.Println(err)
 		log.Fatal("cannot create template cache")
 		return nil, err
 	}
